@@ -1,0 +1,1883 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>绳系小球的圆周运动 · 交互模拟</title>
+<meta name="description" content="轻绳一端系于定点 O，另一端系质量 m 的小球。t=0 时小球位于最低点，以水平速度 v₀ 出发。拖动滑块调节 v₀，实时观察小球的位置、速度与受力。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   TOKENS — 科学方格纸 + 精密仪器
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --paper:        oklch(97.4% 0.004 240);
+  --paper-sunk:   oklch(95.2% 0.005 240);
+  --card:         oklch(99.2% 0.002 240);
+  --rule:         oklch(88% 0.008 240);
+  --rule-strong:  oklch(78% 0.012 240);
+
+  --ink:          oklch(24% 0.014 240);
+  --ink-2:        oklch(42% 0.012 240);
+  --ink-3:        oklch(48% 0.010 240);
+
+  --green-900:    oklch(26% 0.045 165);
+  --green-700:    oklch(38% 0.070 165);
+  --green-500:    oklch(50% 0.085 165);
+  --green-300:    oklch(78% 0.055 165);
+  --green-100:    oklch(93% 0.022 165);
+
+  --ver-700:      oklch(48% 0.165 40);
+  --ver-600:      oklch(55% 0.180 40);
+  --ver-500:      oklch(62% 0.185 40);
+  --ver-100:      oklch(94% 0.035 40);
+
+  --q-mg:         oklch(52% 0.075 275);
+  --q-tension:    oklch(55% 0.180 40);
+  --q-net:        oklch(45% 0.120 155);
+  --q-vel:        oklch(45% 0.090 235);
+  --q-radius:     oklch(62% 0.090 200);
+
+  --grid-minor:   oklch(91% 0.010 240);
+  --grid-major:   oklch(85% 0.016 240);
+
+  --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px;
+  --s-5:20px; --s-6:24px; --s-8:32px; --s-10:40px; --s-12:48px; --s-16:64px;
+
+  --font-display:"Fraunces","Songti SC","STSong","Source Han Serif SC","Noto Serif SC",Georgia,serif;
+  --font-ui:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+  --t-xs:.6875rem; --t-sm:.8125rem; --t-base:.9375rem;
+  --t-lg:1.125rem; --t-xl:1.5rem; --t-3xl:2.75rem;
+
+  --ease-out-quart:cubic-bezier(.25,1,.5,1);
+  --ease-out-expo:cubic-bezier(.16,1,.3,1);
+  --ease-in-out:cubic-bezier(.65,0,.35,1);
+  --d-fast:120ms; --d-base:240ms; --d-slow:420ms;
+
+  --sh-1:0 1px 2px oklch(24% 0.014 240 / .05);
+  --sh-2:0 2px 8px oklch(24% 0.014 240 / .06), 0 1px 2px oklch(24% 0.014 240 / .04);
+}
+
+*,*::before,*::after{box-sizing:border-box;}
+html{-webkit-text-size-adjust:100%;}
+body{
+  margin:0;
+  font-family:var(--font-ui);
+  font-size:var(--t-base);
+  line-height:1.55;
+  color:var(--ink);
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(to right, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(to right, var(--grid-minor) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-minor) 1px, transparent 1px);
+  background-size: 40px 40px, 40px 40px, 8px 8px, 8px 8px;
+  font-kerning:normal;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2{margin:0;font-weight:400;letter-spacing:-.015em;}
+button{font:inherit;color:inherit;}
+
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+:focus{outline:none;}
+:focus-visible{outline:2px solid var(--ver-600);outline-offset:2px;border-radius:3px;}
+
+.shell{max-width:1400px;margin:0 auto;padding:var(--s-6) var(--s-5) var(--s-16);}
+
+/* ── masthead ── */
+.masthead{
+  display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+  gap:var(--s-4);padding-bottom:var(--s-5);
+  border-bottom:2px solid var(--green-900);margin-bottom:var(--s-6);
+}
+.eyebrow{
+  font-family:var(--font-mono);font-size:var(--t-xs);letter-spacing:.14em;
+  text-transform:uppercase;color:var(--green-700);
+  display:flex;align-items:center;gap:var(--s-2);margin-bottom:var(--s-2);
+}
+.eyebrow::before{content:"";width:22px;height:2px;background:var(--ver-600);flex:none;}
+h1.title{
+  font-family:var(--font-display);font-size:var(--t-3xl);font-weight:500;
+  line-height:1.02;letter-spacing:-.025em;color:var(--green-900);
+  font-variation-settings:"opsz" 144;
+}
+h1.title em{font-style:italic;color:var(--ver-600);font-weight:500;}
+.masthead .sub{font-size:var(--t-sm);color:var(--ink-2);max-width:46ch;margin-top:var(--s-3);line-height:1.65;}
+.masthead .sub b{
+  font-weight:600;font-family:var(--font-mono);font-size:.92em;color:var(--ink);
+  background:var(--green-100);padding:1px 5px;border-radius:3px;
+}
+.plate{
+  display:flex;flex-direction:column;gap:var(--s-3);
+  padding:var(--s-4) var(--s-5);background:var(--card);
+  border:1px solid var(--rule);border-left:3px solid var(--ver-600);
+  border-radius:2px;box-shadow:var(--sh-1);min-width:250px;
+}
+.plate-row{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-5);}
+.plate .k{
+  font-family:var(--font-mono);font-size:var(--t-xs);color:var(--ink-3);
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.plate .v{
+  font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+  font-size:var(--t-lg);font-weight:500;color:var(--green-900);
+}
+.plate .v.acc{color:var(--ver-700);font-size:var(--t-base);}
+
+/* ── stage ── */
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 366px;gap:var(--s-6);align-items:start;}
+@media (max-width:1120px){ .stage{grid-template-columns:minmax(0,1fr);} }
+
+/* ── viewport ── */
+.viewport{
+  position:relative;background:var(--card);border:1px solid var(--rule);
+  border-radius:3px;box-shadow:var(--sh-2);overflow:hidden;
+}
+.viewport::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:3px;
+  box-shadow:inset 0 1px 0 oklch(100% 0 0 / .7);
+}
+.viewport canvas{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair;}
+.viewport canvas.grabbing{cursor:grabbing;}
+
+.hint{
+  position:absolute;left:var(--s-4);bottom:var(--s-4);
+  display:flex;align-items:center;gap:var(--s-2);
+  font-size:var(--t-xs);color:var(--ink-3);
+  background:oklch(99% 0.002 240 / .93);
+  padding:5px var(--s-3);border-radius:100px;border:1px solid var(--rule);
+  transition:opacity var(--d-slow) var(--ease-out-quart);
+  pointer-events:none;max-width:calc(100% - var(--s-8));
+}
+.hint.gone{opacity:0;}
+.hint svg{flex:none;}
+
+.regime{
+  position:absolute;right:var(--s-4);top:var(--s-4);
+  display:flex;align-items:center;gap:var(--s-2);
+  padding:5px var(--s-3) 5px var(--s-2);border-radius:100px;
+  font-size:var(--t-xs);font-weight:600;border:1px solid transparent;
+  transition:background var(--d-base) var(--ease-out-quart),
+             color var(--d-base) var(--ease-out-quart),
+             border-color var(--d-base) var(--ease-out-quart);
+  max-width:calc(100% - var(--s-8));
+}
+.regime .dot{width:7px;height:7px;border-radius:50%;flex:none;}
+.regime[data-r="swing"]{background:var(--green-100);color:var(--green-900);border-color:var(--green-300);}
+.regime[data-r="swing"] .dot{background:var(--green-500);}
+.regime[data-r="critical"]{background:var(--ver-100);color:var(--ver-700);border-color:var(--ver-500);}
+.regime[data-r="critical"] .dot{background:var(--ver-600);animation:pulse 1.8s var(--ease-in-out) infinite;}
+.regime[data-r="rotate"]{background:oklch(93% 0.030 235);color:oklch(36% 0.095 235);border-color:oklch(78% 0.070 235);}
+.regime[data-r="rotate"] .dot{background:oklch(50% 0.110 235);}
+@keyframes pulse{
+  0%{box-shadow:0 0 0 0 oklch(62% 0.185 40 / .55);}
+  70%{box-shadow:0 0 0 7px oklch(62% 0.185 40 / 0);}
+  100%{box-shadow:0 0 0 0 oklch(62% 0.185 40 / 0);}
+}
+
+/* ── rail ── */
+.rail{display:flex;flex-direction:column;gap:var(--s-4);}
+.panel{background:var(--card);border:1px solid var(--rule);border-radius:3px;box-shadow:var(--sh-1);}
+.panel > header{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);
+  padding:var(--s-3) var(--s-4);border-bottom:1px solid var(--rule);background:var(--paper-sunk);
+}
+.panel > header h2{
+  font-family:var(--font-mono);font-size:var(--t-xs);font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);
+}
+.panel > header .idx{font-family:var(--font-mono);font-size:var(--t-xs);color:var(--ink-3);}
+.panel .body{padding:var(--s-4);}
+
+/* ── controls ── */
+.ctrl{margin-bottom:var(--s-5);}
+.ctrl:last-child{margin-bottom:0;}
+.ctrl-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s-3);margin-bottom:var(--s-3);}
+.ctrl-head .label{font-size:var(--t-sm);font-weight:600;color:var(--ink);display:flex;align-items:center;gap:var(--s-2);}
+.ctrl-head .sym{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:var(--t-base);font-weight:500;}
+.ctrl-head .readout{
+  font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+  font-size:var(--t-base);font-weight:500;color:var(--ver-700);
+  background:var(--ver-100);padding:1px var(--s-2);border-radius:3px;
+  min-width:78px;text-align:right;
+}
+.ctrl-head .readout.grn{color:var(--green-900);background:var(--green-100);}
+
+.slider{
+  -webkit-appearance:none;appearance:none;width:100%;height:26px;
+  background:transparent;cursor:grab;display:block;margin:0;
+}
+.slider:active{cursor:grabbing;}
+.slider::-webkit-slider-runnable-track{
+  height:5px;border-radius:100px;
+  background:linear-gradient(to right, var(--ver-600) 0 var(--fill,50%), var(--rule) var(--fill,50%) 100%);
+}
+.slider::-moz-range-track{height:5px;border-radius:100px;background:var(--rule);}
+.slider::-moz-range-progress{height:5px;border-radius:100px;background:var(--ver-600);}
+.slider::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:17px;height:17px;border-radius:50%;
+  background:var(--card);border:2.5px solid var(--ver-600);margin-top:-6.5px;
+  box-shadow:var(--sh-1);transition:transform var(--d-fast) var(--ease-out-expo);
+}
+.slider::-moz-range-thumb{
+  width:17px;height:17px;border-radius:50%;background:var(--card);
+  border:2.5px solid var(--ver-600);box-shadow:var(--sh-1);
+  transition:transform var(--d-fast) var(--ease-out-expo);
+}
+.slider:hover::-webkit-slider-thumb{transform:scale(1.14);}
+.slider:hover::-moz-range-thumb{transform:scale(1.14);}
+.slider:active::-webkit-slider-thumb{transform:scale(.94);}
+.slider:active::-moz-range-thumb{transform:scale(.94);}
+.slider:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--paper), 0 0 0 5px var(--ver-600);}
+.slider:focus-visible::-moz-range-thumb{box-shadow:0 0 0 3px var(--paper), 0 0 0 5px var(--ver-600);}
+.slider[data-accent="green"]::-webkit-slider-runnable-track{
+  background:linear-gradient(to right, var(--green-500) 0 var(--fill,50%), var(--rule) var(--fill,50%) 100%);
+}
+.slider[data-accent="green"]::-moz-range-progress{background:var(--green-500);}
+.slider[data-accent="green"]::-webkit-slider-thumb{border-color:var(--green-500);}
+.slider[data-accent="green"]::-moz-range-thumb{border-color:var(--green-500);}
+.slider[data-accent="green"]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px var(--paper), 0 0 0 5px var(--green-500);}
+
+.scale{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--font-mono);font-size:var(--t-xs);
+  font-variant-numeric:tabular-nums;color:var(--ink-3);
+  margin-top:calc(-1 * var(--s-1));letter-spacing:-.02em;
+}
+.scale button{
+  background:none;border:0;cursor:pointer;padding:2px 4px;border-radius:3px;
+  font:inherit;color:inherit;
+  transition:color var(--d-fast) linear,background var(--d-fast) linear;
+}
+.scale button:hover{color:var(--ink);background:var(--paper-sunk);}
+.scale button.on{color:var(--ver-700);font-weight:700;background:var(--ver-100);}
+.scale .crit{color:var(--ver-600);}
+
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-2);}
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:var(--s-2);
+  min-height:40px;padding:0 var(--s-3);border-radius:3px;
+  border:1px solid var(--rule-strong);background:var(--card);color:var(--ink);
+  font-size:var(--t-sm);font-weight:600;cursor:pointer;
+  transition:background var(--d-fast) linear,border-color var(--d-fast) linear,
+             transform var(--d-fast) var(--ease-out-expo),color var(--d-fast) linear;
+}
+.btn:hover{background:var(--paper-sunk);border-color:var(--ink-3);}
+.btn:active{transform:translateY(1px);}
+.btn.primary{background:var(--green-900);color:oklch(97% 0.01 165);border-color:var(--green-900);}
+.btn.primary:hover{background:var(--green-700);border-color:var(--green-700);}
+.btn .ic{flex:none;display:block;}
+
+/* ── readouts ── */
+.readouts{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);}
+.ro{background:var(--card);padding:var(--s-3) var(--s-4);display:flex;flex-direction:column;gap:2px;min-width:0;}
+.ro .ro-k{
+  font-family:var(--font-mono);font-size:var(--t-xs);letter-spacing:.05em;
+  color:var(--ink-3);display:flex;align-items:center;gap:5px;text-transform:uppercase;
+}
+.ro .ro-k .swatch{width:9px;height:2.5px;border-radius:1px;flex:none;}
+.ro .ro-v{
+  font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+  font-size:var(--t-lg);font-weight:500;color:var(--ink);letter-spacing:-.01em;white-space:nowrap;
+}
+.ro .ro-v small{font-size:.62em;color:var(--ink-3);font-weight:400;margin-left:1px;}
+.ro.span2{grid-column:span 2;}
+.ro.warm .ro-v{color:var(--ver-700);}
+
+/* ── legend ── */
+.legend{display:flex;flex-direction:column;gap:var(--s-3);}
+.lg{display:flex;align-items:flex-start;gap:var(--s-3);font-size:var(--t-sm);}
+.lg .key{width:26px;flex:none;display:flex;justify-content:center;padding-top:7px;}
+.lg .key .bar{height:3px;border-radius:2px;width:26px;}
+.lg .txt{color:var(--ink-2);line-height:1.4;}
+.lg .txt b{color:var(--ink);font-weight:600;}
+.lg .txt .fm{font-family:var(--font-mono);font-size:.9em;font-variant-numeric:tabular-nums;display:block;color:var(--ink-3);margin-top:1px;}
+
+.curve-wrap{padding:var(--s-3) var(--s-4) var(--s-4);}
+.curve-wrap canvas{display:block;width:100%;height:auto;border-radius:2px;}
+
+/* ── 模型切换（轻绳 / 轻杆） ── */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:2px;padding:2px;
+     background:var(--paper-sunk);border:1px solid var(--rule);border-radius:3px;}
+.seg button{
+  display:flex;align-items:center;justify-content:center;gap:6px;
+  min-height:32px;padding:0 var(--s-2);border:0;border-radius:2px;background:transparent;
+  font-size:var(--t-xs);font-weight:600;color:var(--ink-2);cursor:pointer;
+  transition:background var(--d-fast) linear,color var(--d-fast) linear;
+}
+.seg button:hover{color:var(--ink);}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--green-900);box-shadow:var(--sh-1);}
+.seg button .ic{flex:none;opacity:.85;}
+.seg-note{margin-top:var(--s-2);font-size:var(--t-xs);line-height:1.45;color:var(--ink-3);}
+
+/* ── 松弛徽标（浮在画布右上、状态牌之下） ── */
+.slack-flag{
+  position:absolute;right:var(--s-4);top:44px;
+  display:flex;align-items:center;gap:6px;
+  padding:4px var(--s-3) 4px var(--s-2);border-radius:100px;
+  font-size:var(--t-xs);font-weight:700;
+  background:oklch(94% 0.060 95);color:oklch(42% 0.110 75);
+  border:1px solid oklch(84% 0.090 85);
+  opacity:0;transform:translateY(-4px);pointer-events:none;
+  transition:opacity var(--d-base) var(--ease-out-quart),
+             transform var(--d-base) var(--ease-out-expo);
+}
+.slack-flag.on{opacity:1;transform:none;}
+.slack-flag .dot{width:6px;height:6px;border-radius:50%;background:oklch(58% 0.150 70);animation:pulse2 1.3s var(--ease-in-out) infinite;}
+@keyframes pulse2{
+  0%{box-shadow:0 0 0 0 oklch(58% 0.150 70 / .5);}
+  70%{box-shadow:0 0 0 6px oklch(58% 0.150 70 / 0);}
+  100%{box-shadow:0 0 0 0 oklch(58% 0.150 70 / 0);}
+}
+
+/* ── 力的分解面板 ── */
+.decomp{display:flex;flex-direction:column;}
+.dc{
+  display:flex;align-items:center;justify-content:space-between;gap:var(--s-3);
+  padding:var(--s-2) var(--s-4);border-top:1px solid var(--rule);
+}
+.dc:first-child{border-top:0;}
+.dc .dc-k{
+  font-family:var(--font-mono);font-size:var(--t-xs);letter-spacing:.04em;
+  color:var(--ink-3);display:flex;align-items:center;gap:6px;min-width:0;
+}
+.dc .dc-k .arrowg{width:16px;height:9px;flex:none;overflow:visible;}
+.dc .dc-v{
+  font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+  font-size:var(--t-sm);font-weight:500;color:var(--ink);white-space:nowrap;
+}
+.dc .dc-v small{font-size:.78em;color:var(--ink-3);font-weight:400;margin-left:1px;}
+.dc.sum{background:var(--paper-sunk);}
+.dc.sum .dc-v{color:var(--green-900);font-weight:700;}
+
+.foot{
+  margin-top:var(--s-6);padding-top:var(--s-4);border-top:1px solid var(--rule);
+  display:flex;flex-wrap:wrap;gap:var(--s-4) var(--s-6);align-items:baseline;
+  font-size:var(--t-xs);color:var(--ink-3);font-family:var(--font-mono);
+}
+.foot .deriv{color:var(--ink-2);}
+.foot .deriv b{color:var(--ver-700);font-weight:700;}
+.foot code{background:var(--paper-sunk);padding:1px 6px;border-radius:3px;color:var(--ink-2);border:1px solid var(--rule);}
+
+@keyframes rise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+.rise{animation:rise var(--d-slow) var(--ease-out-expo) backwards;animation-delay:calc(var(--i,0)*70ms);}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;scroll-behavior:auto !important;
+  }
+}
+@media (max-width:620px){
+  .shell{padding:var(--s-4) var(--s-3) var(--s-12);}
+  h1.title{font-size:2.05rem;}
+  .masthead{flex-direction:column;align-items:stretch;}
+  .plate{min-width:0;}
+  .readouts{grid-template-columns:1fr;}
+  .ro.span2{grid-column:span 1;}
+  .btns{grid-template-columns:1fr;}
+  .regime{font-size:.6rem;}
+  .slack-flag{font-size:.6rem;top:40px;}
+  .seg-note{font-size:.66rem;}
+}
+</style>
+</head>
+<body>
+<a href="#vp" class="sr">跳到模拟画布</a>
+
+<div class="shell">
+
+  <header class="masthead rise" style="--i:0">
+    <div>
+      <div class="eyebrow">大学物理 · 圆周运动</div>
+      <h1 class="title">绳系小球的<em>非匀速</em>圆周运动</h1>
+      <p class="sub">
+        长为 <b>L</b> 的轻绳，一端系于定点 <b>O</b>，另一端系质量 <b>m</b> 的小球。
+        <b>t = 0</b> 时小球位于最低点，具有水平速度 <b>v₀</b>。
+        拖动滑块改变 <b>v₀</b>，实时观察小球的位置、速度与受力。
+      </p>
+    </div>
+    <div class="plate">
+      <div class="plate-row">
+        <span class="k">运动状态</span>
+        <span class="v" id="p-state" style="font-size:var(--t-sm)">—</span>
+      </div>
+      <div class="plate-row">
+        <span class="k">v₀ / v<sub>c</sub></span>
+        <span class="v acc" id="p-ratio">—</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="stage">
+
+    <section class="viewport rise" style="--i:1" aria-label="运动模拟画布">
+      <div class="regime" data-r="swing" id="regime" role="status">
+        <span class="dot"></span><span id="regime-txt">摆动</span>
+      </div>
+      <div class="slack-flag" id="slack-flag" role="status">
+        <span class="dot"></span>绳已松弛 T = 0 · 抛体阶段
+      </div>
+      <canvas id="vp" width="920" height="720"
+        aria-label="小球圆周运动模拟。左右方向键微调时刻，上下方向键微调初速度，空格键播放或暂停。"
+        tabindex="0" role="img"></canvas>
+      <div class="hint" id="hint">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/>
+        </svg>
+        <span>拖动小球直接设定 v₀ · 空格播放/暂停 · ←→ 定格时刻 · ↑↓ 微调 v₀</span>
+      </div>
+    </section>
+
+    <aside class="rail">
+
+      <section class="panel rise" style="--i:2">
+        <header><h2>控制 · Controls</h2><span class="idx">01</span></header>
+        <div class="body">
+
+          <div class="ctrl">
+            <div class="ctrl-head">
+              <label class="label" for="s-v0"><span class="sym">v₀</span> 初速度</label>
+              <output class="readout" id="o-v0" for="s-v0">4.50 m/s</output>
+            </div>
+            <input class="slider" type="range" id="s-v0"
+              min="0.5" max="9.5" step="0.01" value="4.5" aria-describedby="v0-help">
+            <div class="scale" id="v0-scale">
+              <button type="button" data-v="4.4272">√(2gL)</button>
+              <button type="button" data-v="5.4222">√(3gL)</button>
+              <button type="button" data-v="6.2610" class="crit">√(4gL)</button>
+              <button type="button" data-v="7.0000">√(5gL)</button>
+            </div>
+            <p id="v0-help" class="sr">取值范围 0.5 到 9.5 米每秒。√(4gL) ≈ 6.26 是能否通过最高点的分界；√(5gL) = 7.00 是恰好通过最高点、顶部张力为零的速度。</p>
+          </div>
+
+          <div class="ctrl">
+            <div class="ctrl-head">
+              <label class="label" for="s-t"><span class="sym">t</span> 时刻</label>
+              <output class="readout grn" id="o-t" for="s-t">0.00 s</output>
+            </div>
+            <input class="slider" type="range" id="s-t" data-accent="green"
+              min="0" max="1" step="0.0005" value="0" aria-describedby="t-help">
+            <div class="scale" id="t-scale">
+              <button type="button" data-t="0">0</button>
+              <button type="button" data-t="0.25">¼T</button>
+              <button type="button" data-t="0.5">½T</button>
+              <button type="button" data-t="0.75">¾T</button>
+              <span style="padding:2px 4px">T</span>
+            </div>
+            <p id="t-help" class="sr">拖动可定格任意时刻。滑块满量程恰好是一个完整周期，可精确停在四分之一周期等位置。</p>
+          </div>
+
+          <div class="ctrl">
+            <div class="ctrl-head">
+              <span class="label">约束模型</span>
+            </div>
+            <div class="seg" id="seg-model" role="group" aria-label="约束模型：轻绳或轻杆">
+              <button type="button" data-model="string" aria-pressed="true">
+                <svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                  <path d="M4 4c3 8 13 8 16 16"/>
+                </svg>
+                轻绳（T ≥ 0）
+              </button>
+              <button type="button" data-model="rod" aria-pressed="false">
+                <svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                  <path d="M4 20 20 4"/>
+                </svg>
+                轻杆（可支撑）
+              </button>
+            </div>
+            <p class="seg-note" id="seg-note">
+              轻绳只能拉、不能推：当 T 降到 0 时绳松弛，小球脱离圆周按抛体运动，直到绳再次绷直。
+            </p>
+          </div>
+
+          <div class="btns">
+            <button class="btn primary" id="b-play" aria-pressed="true">
+              <svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>
+              </svg>
+              <span id="b-play-txt">暂停</span>
+            </button>
+            <button class="btn" id="b-reset">
+              <svg class="ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v5h5"/>
+              </svg>
+              复位
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel rise" style="--i:3" aria-live="polite" aria-atomic="true">
+        <header><h2>实时读数 · Telemetry</h2><span class="idx">02</span></header>
+        <div class="readouts" style="border:0;border-radius:0">
+          <div class="ro">
+            <span class="ro-k"><span class="swatch" style="background:var(--q-vel)"></span>速率 v</span>
+            <span class="ro-v" id="r-v">—<small>m/s</small></span>
+          </div>
+          <div class="ro">
+            <span class="ro-k"><span class="swatch" style="background:var(--q-radius)"></span>偏角 θ</span>
+            <span class="ro-v" id="r-th">—<small>°</small></span>
+          </div>
+          <div class="ro warm">
+            <span class="ro-k"><span class="swatch" style="background:var(--q-tension)"></span>绳张力 T</span>
+            <span class="ro-v" id="r-T">—<small>N</small></span>
+          </div>
+          <div class="ro">
+            <span class="ro-k"><span class="swatch" style="background:var(--q-mg)"></span>重力 mg</span>
+            <span class="ro-v" id="r-mg">—<small>N</small></span>
+          </div>
+          <div class="ro span2">
+            <span class="ro-k"><span class="swatch" style="background:var(--q-net)"></span>向心力 F<sub>r</sub> = mv²/L</span>
+            <span class="ro-v" id="r-Fr">—<small>N</small></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel rise" style="--i:4">
+        <header><h2>力的分解 · Decomposition</h2><span class="idx">03</span></header>
+        <div class="decomp" aria-live="polite" aria-atomic="true">
+          <div class="dc">
+            <span class="dc-k">
+              <svg class="arrowg" viewBox="0 0 16 9" aria-hidden="true">
+                <path d="M0 8 L14 1" stroke="oklch(52% 0.075 275)" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M14 1 l-4.4 0.6 M14 1 l-1.2 4.2" stroke="oklch(52% 0.075 275)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+              </svg>
+              mg cos θ · 沿绳（背离 O）
+            </span>
+            <span class="dc-v" id="d-mgr">—<small>N</small></span>
+          </div>
+          <div class="dc">
+            <span class="dc-k">
+              <svg class="arrowg" viewBox="0 0 16 9" aria-hidden="true">
+                <path d="M0 1 L14 8" stroke="oklch(52% 0.075 275)" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M0 1 l4.4 -0.6 M0 1 l1.2 4.2" stroke="oklch(52% 0.075 275)" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+              </svg>
+              mg sin θ · 切向（θ 增大方向）
+            </span>
+            <span class="dc-v" id="d-mgt">—<small>N</small></span>
+          </div>
+          <div class="dc sum">
+            <span class="dc-k" style="color:var(--green-900);font-weight:700">合力 F<sub>r</sub> = T − mg cos θ</span>
+            <span class="dc-v" id="d-sum">—<small>N</small></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel rise" style="--i:5">
+        <header><h2>张力分布 · T(θ)</h2><span class="idx">04</span></header>
+        <div class="curve-wrap">
+          <canvas id="curve" width="640" height="300" role="img"
+            aria-label="绳张力随偏角变化的曲线。横轴为偏角 0 到 180 度，纵轴为张力。绿点标示小球当前位置。"></canvas>
+        </div>
+      </section>
+
+      <section class="panel rise" style="--i:6">
+        <header><h2>图例 · Legend</h2><span class="idx">05</span></header>
+        <div class="body">
+          <div class="legend">
+            <div class="lg">
+              <span class="key"><span class="bar" style="background:var(--q-vel)"></span></span>
+              <span class="txt"><b>速度 v</b> · 切线方向
+                <span class="fm">v = √(v₀² − 2gL(1 − cos θ))</span></span>
+            </div>
+            <div class="lg">
+              <span class="key"><span class="bar" style="background:var(--q-mg)"></span></span>
+              <span class="txt"><b>重力 mg</b> · 竖直向下
+                <span class="fm">mg = 9.80 N</span></span>
+            </div>
+            <div class="lg">
+              <span class="key"><span class="bar" style="background:var(--q-tension)"></span></span>
+              <span class="txt"><b>绳张力 T</b> · 沿绳指向 O
+                <span class="fm">T = mv²/L + mg cos θ</span></span>
+            </div>
+            <div class="lg">
+              <span class="key"><span class="bar" style="background:var(--q-net)"></span></span>
+              <span class="txt"><b>向心力 F<sub>r</sub></b> · 指向 O
+                <span class="fm">F<sub>r</sub> = mv²/L = T − mg cos θ</span></span>
+            </div>
+            <div class="lg">
+              <span class="key"><span class="bar" style="background:oklch(62% 0.150 70)"></span></span>
+              <span class="txt"><b>绳松弛</b> · T = 0 后绳变软，球走斜抛
+                <span class="fm">cos θ<sub>s</sub> = (2gL − v₀²)/(3gL)</span></span>
+            </div>
+            <div class="lg">
+              <span class="key"><span class="bar" style="background:oklch(48% 0.030 165)"></span></span>
+              <span class="txt"><b>对照模型</b> · 另一约束下的球（虚线空心圈）
+                <span class="fm">轻绳 ⇄ 轻杆 位置差异</span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </aside>
+  </div>
+
+  <footer class="foot rise" style="--i:7">
+    <span class="deriv">轻绳过顶条件：<b>v<sub>顶</sub> ≥ 0</b>，等价于 <b>v<sub>c</sub> = √(5gL) = 7.00 m/s</b>，此时 T<sub>顶</sub> = 0</span>
+    <span>绳松弛临界速度 <code>√(2gL) = 4.43 m/s</code></span>
+    <span>能到达最高点的最低速度 <code>√(4gL) = 6.26 m/s</code></span>
+    <span>当前周期 <code id="p-per">—</code></span>
+    <span>取 <code>g = 9.8</code> · <code>L = 1.0 m</code> · <code>m = 1.0 kg</code></span>
+  </footer>
+</div>
+
+<script>
+"use strict";
+/* ═══════════════════════════════════════════════════════════════
+   1 · 物理模型
+   ─────────────────────────────────────────────────────────────
+   能量守恒   ½mv² = ½mv₀² − mgL(1 − cos θ)
+              ⇒ v² = v₀² − 2gL(1 − cos θ) = v₀² − 4gL sin²(θ/2)
+   径向牛顿二 T − mg cos θ = mv²/L      （θ 自最低点量起）
+              ⇒ T = mv²/L + mg cos θ = m v₀²/L − mg(3cos θ − 2)
+
+   关键区别 —— 轻绳 vs 轻杆：
+     轻杆可以「推」也能「拉」，T 取负值代表杆对球的支持力，
+       小球被始终约束在圆周上，任何 v₀ 都能绕整圈（只需 v₀ > 0）。
+     轻绳只能「拉」，物理张力必须满足 T ≥ 0。当 T 降到 0：
+       绳松弛（变软），小球脱离圆周做斜抛运动，直到绳再次绷直。
+       松弛临界： T = 0  ⇒  cos θ_s = (2gL − v₀²)/(3gL)
+       该角存在要求 v₀² ≥ 2gL，即 v₀ ≥ √(2gL) = 4.4272 m/s。
+
+   松弛后「半个往返」（冲上一侧再回到最低点）的完整相位（见 halfTrip / solveHalf）：
+       ① 上行弧  0 → θ_s    绳绷紧，能量由该半程的起始速率决定
+       ② 抛体    θ_s → θ_b  绳松弛，T = 0。初速沿 θ_s 处的切线方向；
+                            因 r'(0) = 0 且 r''(0) < 0，球先「沉入」圆内，
+                            再被绳拽回，r 由 L⁻ 回升到 L 时绷直。
+       ③ 回程弧  θ_b → 0    绷直瞬间径向分量被绳的冲量抹掉（完全非弹性），
+                            只剩切向速率 vt；此后按折减能量滑回最低点。
+
+   ⚠️ 一个「完整往返」= 右半程 + 左半程，而**左半程必须用右半程的残余速率
+      重算**（见 stringTrip）—— 右半程结束时球在最低点仍有速度且朝左，
+      会继续冲上左半圆。只算一侧会让「左半圈消失」，这是曾经的回归。
+
+   两个易错点（都曾在此实现中出错并被修正）：
+     (1) 绷直是「完全非弹性」的 —— 之后的速度必须由 vt 重算，
+         再套用全能量 √(v₀² − 2gL(1−cos θ)) 会得到偏大的 v 与 T。
+     (2) 回程弧的 1/v 在 θ_b 处若 vt → 0 会呈 1/√ 可积奇点，
+         必须用 θ = |θ_b|·sin²ψ 消去，否则积分值会爆炸到 10⁶ 量级。
+   ═══════════════════════════════════════════════════════════════ */
+const G = 9.8, L = 1.0, M = 1.0;
+
+const speedSq = (v0, th) => Math.max(v0*v0 - 2*G*L*(1 - Math.cos(th)), 0);
+const tension = (v0, th) => M*speedSq(v0,th)/L + G*M*Math.cos(th);
+
+/*  分界：令 k = v₀ / (2√(gL)) = v₀ / 6.2610
+      k < 1  →  摆动；小球在 θmax 处折返
+      k ≥ 1  →  整周转动；小球能越过最高点                        */
+const V_LIMIT = 2*Math.sqrt(G*L);       // 6.2610  能否过顶的分界速度
+const V_CRIT  = Math.sqrt(5*G*L);       // 7.0000  恰好过顶，T_顶 = 0
+const V_SLACK0 = Math.sqrt(2*G*L);      // 4.4272  绳开始可能松弛的最低速度
+
+const thetaMax = v0 => {
+  const c = 1 - v0*v0/(2*G*L);
+  return c <= -1 ? Math.PI : Math.acos(Math.max(-1, c));
+};
+
+/*  绳松弛临界角 θ_s（仅当 v₀ ≥ √(2gL) 时存在，否则返回 null）
+      cos θ_s = (2gL − v₀²)/(3gL)                                          */
+const slackAngle = v0 => {
+  const c = (2*G*L - v0*v0) / (3*G*L);
+  return c <= -1 ? Math.PI : (c >= 1 ? null : Math.acos(c));
+};
+
+/*  轮次几何：判断属于摆动还是转动，以及每轮覆盖的偏角上界。
+      v₀ < 2√(gL)（= 6.2610）→ 摆动，小球达不到最高点，4 轮往返；
+      v₀ ≥ 2√(gL)            → 转动，小球越过最高点，2 轮转回来。
+    ⚠️ 临界带：θmax → π 时摆动表的时间积分在折返点发散（虽然可积），
+       数值上 quarter 会被拉到极大、周期虚高。物理上此时小球已经「几乎
+       越过」最高点，与转动不可区分。故对 θmax > π − 1e-3 一律按转动处理。 */
+function lapsGeom(v0){
+  const tm = thetaMax(v0);
+  if(v0 < V_LIMIT && tm < Math.PI - 1e-3) return { thEnd: Math.max(tm, 1e-9), swing: true };
+  return { thEnd: Math.PI, swing: false };
+}
+const NEAR_TOP = v0 => thetaMax(v0) >= Math.PI - 1e-3;
+
+/*  轮次几何：把「时间 τ ∈ [0, Tper)」映射到小球的带符号偏角 d 与角速度符号。
+    θ(t) = |d|，side = sign(d)，thdot = sign(dd/dτ)。
+      摆动（θmax < π，4 轮）： 1 右↑  2 右↓  3 左↑  4 左↓
+      转动（2 轮）：            1 右↑（φ:0→π）  2 左↓（φ:π→2π）
+    用「带符号角 + 角速度符号」描述后，整圈天然连续（无需分支拼装）。         */
+function angOf(v0, tau){
+  const { swing } = lapsGeom(v0);
+  const T   = tableFor(v0);
+  const leg = T.quarter;                    // 单轮时长 = t(0 → θend)
+
+  const nLeg = swing ? 4 : 2;
+  const k = Math.min(nLeg - 1, Math.floor(tau / leg));
+  const u = Math.min(leg, Math.max(0, tau - k * leg));
+
+  /*  偶数轮（0, 2）上行：|θ| 从 0 走到 θend，直接反查
+      奇数轮（1, 3）下行：|θ| 从 θend 回到 0，用 (leg − u) 反查
+      上行 θ̇ > 0，下行 θ̇ < 0。                                              */
+  const up = (k % 2 === 0);
+  const th = thAt(T, up ? u : leg - u);
+
+  /*  摆动：轮 0/1 在右半圆（d > 0），轮 2/3 在左半圆（d < 0）
+      转动：轮 0 在右半圆（d > 0），轮 1 在左半圆（d < 0）                    */
+  const right = swing ? (k < 2) : (k === 0);
+
+  return { d: right ? th : -th, thdot: up ? 1 : -1, leg: k, th };
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   2 · 运动学求解
+   ─────────────────────────────────────────────────────────────
+   转动（k ≥ 1）有初等解：θ̇ = v₀/L − 2(g/L)(L/v₀) sin²(θ/2) > 0，
+       故直接数值积分成表，避免椭圆积分在 k ≳ 0.98 处的精度损失。
+   摆动（k < 1）：t(θ) = ∫₀^θ L dθ / v(θ)：被积函数在 θmax 处发散
+       （可积，量级 (θmax−θ)^(−1/2)）。用替换 θ = θ_end·sin²ψ 消掉
+       平方根后 ψ ∈ [0, π/2] 上处处光滑，Simpson 积分精度极高。
+   对每个 v₀ 只构造一次表格并缓存，之后 O(log n) 二分反查 θ(t)。
+
+   轻绳松弛（v₀ ≥ √(2gL)）：θ 超过 θ_s 后绳松弛，小球脱离圆周做斜抛，
+       直到 r(τ) = L 再次绷直。这一段非线性、非周期，其落点——
+       即「折返角」——通过不动点迭代求得：
+           从 θmax 出发 → 抛体飞回圆周 → 得新 θmax' → 再迭代
+       收敛后张力恰好在折返点归零，物理自洽。                     */
+const TABLE_N = 900;      // ψ 网格（摆动）
+const OUT_N   = 1400;     // θ 输出网格
+const ROT_N   = 2400;     // 转动直接积分步数
+
+const tableCache = new Map();
+
+/*  单摆弧的耗时：从偏角 θ_from 走到 θ_to，速度由「折减能量」给出，
+    能量锚在折返端 θ_to 上（那里切向速率恰为 vt）：
+        v²(θ) = vt² + 2gL(cos θ − cos θ_to)
+    即 v²(0) = vt² + 2gL(1 − cos θ_to)，θ = θ_to 时 v = |vt|。
+    用途：抛体绷直后 θ_b → 0 的回程弧，锚点 θ_to 是起始的高角端 θ_b。
+
+    ⚠️ 必须记住 |dθ/dt| = v/L（不是 v/(L·v₀)），故 dt = L dθ / v。
+    ⚠️ vt → 0（小球几乎在 θ_b 处静止）时 1/v 在 θ_to 呈 1/√ 可积奇点，
+       直接 Simpson 会把端点放大成天文数字（曾出现 tDown ≈ 7×10⁶ s）。
+       故做奇点消去替换 θ = θ_to·sin²ψ（ψ 从 ψ_lo 到 π/2）：
+           dθ = 2θ_to·sinψcosψ dψ  →  与 v 在端点的 √ 零化相消，
+       被积函数在两端都解析。                                                 */
+function arcTime(thFrom, thTo, vt, steps){
+  const A = Math.abs(thFrom), B = Math.abs(thTo);
+  if(Math.abs(A - B) < 1e-14) return 0;
+
+  /*  锚点取高角端（= θ_to 的绝对值），能量常数在此定义                        */
+  const hi = Math.max(A, B), lo = Math.min(A, B);
+  if(hi < 1e-15) return 0;
+  const E2 = vt*vt + 2*G*L*(1 - Math.cos(hi));      // v²(θ) = E2 − 2gL(1−cos θ)
+
+  const n = steps || 1600;
+  const psiLo = Math.asin(Math.min(1, Math.sqrt(lo / hi)));
+  const h = (Math.PI/2 - psiLo) / n;
+
+  /*  ψ → θ：θ = hi·sin²ψ，dθ/dψ = 2·hi·sinψ·cosψ，被积 = (L/v)·dθ/dψ          */
+  const integrand = psi => {
+    const s = Math.sin(psi), c = Math.cos(psi);
+    const th = hi * s * s;
+    const v  = Math.sqrt(Math.max(E2 - 2*G*L*(1 - Math.cos(th)), 1e-14));
+    return (L / v) * 2 * hi * s * c;
+  };
+
+  let sum = 0;
+  for(let i = 0; i < n; i++){
+    const p = psiLo + i*h, q = psiLo + (i+1)*h, m = 0.5*(p + q);
+    sum += (integrand(p) + 4*integrand(m) + integrand(q)) * h / 6;
+  }
+  return Math.abs(sum);
+}
+
+function buildTable(v0){
+  /*  与 lapsGeom 保持同一判据：θmax 极度接近 π 时按转动处理，
+      避免折返点处的可积奇点把 quarter 拉到非物理的大值。                     */
+  const geo   = lapsGeom(v0);
+  const swing = geo.swing;
+  const thEnd = geo.thEnd;
+  const tOf   = new Float64Array(OUT_N + 1);
+  const thOf  = new Float64Array(OUT_N + 1);
+  for(let i = 0; i <= OUT_N; i++) thOf[i] = thEnd * i / OUT_N;
+
+  if(swing){
+    /* ψ 均匀网格上的被积函数（已消奇点） */
+    const psiInteg = psi => {
+      const s = Math.sin(psi), c = Math.cos(psi);
+      const th = thEnd * s * s;
+      const v2 = v0*v0 - 2*G*L*(1 - Math.cos(th));
+      if(v2 <= 0) return 0;
+      return L * 2 * thEnd * s * c / Math.sqrt(v2);
+    };
+
+    const tPsi = new Float64Array(TABLE_N + 1);
+    tPsi[0] = 0;
+    for(let i = 1; i <= TABLE_N; i++){
+      const a = (i-1) * Math.PI/2 / TABLE_N;
+      const b =  i    * Math.PI/2 / TABLE_N;
+      const S = 16, h = (b - a)/S;
+      let acc = 0;
+      for(let j = 0; j <= S; j++){
+        const p = a + j*h;
+        const w = (j === 0 || j === S) ? 1 : (j % 2 ? 4 : 2);
+        const val = psiInteg(p);
+        acc += (isFinite(val) ? val : 0) * w;
+      }
+      tPsi[i] = tPsi[i-1] + acc*h/3;
+    }
+
+    /* ψ → θ 映射，再重采样到 θ 均匀，便于二分反查 */
+    const thSrc = new Float64Array(TABLE_N + 1);
+    for(let i = 0; i <= TABLE_N; i++){
+      const s = Math.sin(i * Math.PI/2 / TABLE_N);
+      thSrc[i] = thEnd * s * s;
+    }
+    tOf[0] = 0;
+    for(let i = 1; i <= OUT_N; i++){
+      const th = thOf[i];
+      let lo = 0, hi = TABLE_N;
+      while(hi - lo > 1){
+        const m = (lo + hi) >> 1;
+        if(thSrc[m] <= th) lo = m; else hi = m;
+      }
+      const d = thSrc[hi] - thSrc[lo];
+      const w = d > 1e-15 ? (th - thSrc[lo]) / d : 0;
+      tOf[i] = tPsi[lo] + w * (tPsi[hi] - tPsi[lo]);
+    }
+  } else {
+    /*  dt/dθ = 1/θ̇(θ) = L / √(v₀² − 2gL(1−cos θ))。注意被积函数是 1/θ̇，
+        不是 θ̇ 本身；也不是 v²/(L·v₀)（那是把初速处的角速度误当成通式）。
+        v₀ ≥ 2√(gL) 时根号内恒正，中点法即可高精度。
+        积分落在独立的 ROT_N 网格上（tOf 只有 OUT_N+1 项，不能直接写）。      */
+    const invThDot = th => {
+      const v2 = v0*v0 - 2*G*L*(1 - Math.cos(th));
+      return L / Math.sqrt(Math.max(v2, 1e-14));
+    };
+    const h = Math.PI / ROT_N;
+    const tRot = new Float64Array(ROT_N + 1);
+    for(let i = 1; i <= ROT_N; i++){
+      const aa = (i-1)*h, bb = i*h, mm = (aa+bb)/2;
+      tRot[i] = tRot[i-1] + (invThDot(aa) + 4*invThDot(mm) + invThDot(bb)) * h / 6;
+    }
+    /* ROT_N 网格 → OUT_N 均匀网格（线性插值，端点精确取到 π） */
+    for(let i = 0; i <= OUT_N; i++){
+      const th = thOf[i];
+      if(th >= Math.PI){ tOf[i] = tRot[ROT_N]; continue; }
+      const x  = th * ROT_N / Math.PI;
+      const k0 = Math.min(ROT_N - 1, Math.max(0, Math.floor(x)));
+      tOf[i] = tRot[k0] + (x - k0) * (tRot[k0 + 1] - tRot[k0]);
+    }
+  }
+
+  /*  表格积分区间两种情形的"轮数"不同（转为几何后统一）：
+        摆动  θ_end = θmax < π  →  一条腿 = θ:0→θmax
+        转动  θ_end = π         →  一条腿 = θ:0→π                 */
+  const T = { tOf, thOf, thEnd, swing, k: v0/V_LIMIT };
+  T.quarter = tOf[OUT_N];                    // 表格覆盖的时间跨度
+  T.Tper    = swing ? 4 * T.quarter : 2 * T.quarter;
+  T.half    = T.Tper / 2;
+
+  /* ── 轻绳松弛几何（仅 v₀ ≥ √(2gL) 时启用） ──
+     从 θ_s 出发做斜抛，求第一次再次触及圆周 r = L 的位置。
+       若 θ_s 与 θ_b 都 < π  →  小球在 θ_b 处折返（未过顶）。此时张力恰在
+                                θ_b 归零，往返段即对 [θ_s, θ_b] 的两次遍历。
+       若 θ_b 不存在（v₀ ≥ √(3gL)）→ 抛体直接越过最高点落到另一侧。 */
+  T.thS = slackAngle(v0);
+  T.sl  = null;
+  /*  θ_s 必须严格落在可达弧内部，否则「刚起步就松弛」没有物理意义           */
+  if(T.thS !== null && T.thS < thEnd - 3e-3){
+    const g0 = projectileOnce(v0, T.thS);
+    /*  ⚠️ 判据必须用 |θ_b|：v₀ ≳ 5.7 时小球会在飞行中越过中线落到左半圆，
+        θ_b 因此为负。用 θ_b > 3e-3 会把这些（恰恰最有教学价值的）情形全部丢弃。 */
+    if(g0 && Math.abs(g0.thB) > 3e-3 && Math.abs(g0.thB) < Math.PI - 3e-3){
+      T.sl = {
+        thS: T.thS,
+        thB: g0.thB,        // 绷直点偏角（带符号：>0 右半圆，<0 已越过中线）
+        tauF: g0.tau,       // θ_s → θ_b 的飞行时长
+        vt:  g0.vt          // 绷直瞬间切向速度（带符号：<0 表示正朝 θ 减小方向返回）
+      };
+      /*  绷直后的「单一回程弧」θ_b → 0，用折减能量
+            v²(θ) = vt² + 2gL(cos θ − cos θ_b)
+          积分得 tDown。这就是抛体之后的全部剩余行程 —— 不再人为拆成
+          「回缩到 θ_s」和「从 θ_s 下到 0」两段（那样会重复计时而虚增周期）。   */
+      T.sl.tDown = arcTime(T.sl.thB, 0, T.sl.vt);
+      T.sl.tau   = T.sl.tauF + T.sl.tDown;
+    }
+  }
+  return T;
+}
+function tableFor(v0){
+  const key = v0.toFixed(3);
+  let t = tableCache.get(key);
+  if(!t){ t = buildTable(v0); tableCache.set(key, t); }
+  return t;
+}
+
+/*  θ 方向查 t */
+function tAt(T, th){
+  const {tOf, thOf, thEnd} = T;
+  if(th <= 0) return 0;
+  if(th >= thEnd) return tOf[OUT_N];
+  let lo = 0, hi = OUT_N;
+  while(hi - lo > 1){
+    const m = (lo + hi) >> 1;
+    if(thOf[m] <= th) lo = m; else hi = m;
+  }
+  const d = thOf[hi] - thOf[lo];
+  const w = d > 1e-15 ? (th - thOf[lo]) / d : 0;
+  return tOf[lo] + w * (tOf[hi] - tOf[lo]);
+}
+/*  t 方向反查 θ（t 已规约到 [0, 单腿时长]） */
+function thAt(T, t){
+  const {tOf, thOf} = T;
+  if(t <= 0) return 0;
+  if(t >= tOf[OUT_N]) return thOf[OUT_N];
+  let lo = 0, hi = OUT_N;
+  while(hi - lo > 1){
+    const m = (lo + hi) >> 1;
+    if(tOf[m] <= t) lo = m; else hi = m;
+  }
+  const d = tOf[hi] - tOf[lo];
+  const w = d > 1e-15 ? (t - tOf[lo]) / d : 0;
+  return thOf[lo] + w * (thOf[hi] - thOf[lo]);
+}
+
+/*  单次抛体段：小球在 θ_a 处绳松弛（T = 0），沿切向离开圆周，做斜抛，
+    直到首次重新满足 |r| = L —— 那一刻绳被拉直、重新约束小球。
+    ─────────────────────────────────────────────────────────────
+    为何不能直接解四次方程：|P₀| = L 恰使常数项消失，τ = 0 成为平凡根，
+    数值上会掩盖真正的绷直根。改为直接对
+        f(τ) = |P₀ + vτ + ½aτ²|² − L²        (f(0) = 0，且在 0⁺ 为负)
+    扫描「首个由负回升到 0 的正零点」并二分精修 —— 数值上稳健得多。
+
+    绷直瞬间绳的长度不可伸长，径向速度分量被绳的冲量吸收（完全非弹性），
+    只剩切向分量继续运动；这正是教材对「绳突然绷直」的标准处理。          */
+function projectileOnce(v0, thA){
+  const sinA = Math.sin(thA), cosA = Math.cos(thA);
+  if(sinA < 1e-12) return null;
+
+  const v2 = speedSq(v0, thA);
+  if(v2 <= 0) return null;
+  const v = Math.sqrt(v2);
+
+  /*  初速方向取「θ 增大」的切向（cos θ, sin θ）：小球正处于上行、T 刚刚归零，
+      离开圆盘时速度沿圆周切线方向。                                          */
+  const vx = v * cosA, vy = v * sinA;
+  const P0x = L * sinA, P0y = -L * cosA;
+
+  const f = t => {
+    const x = P0x + vx*t, y = P0y + vy*t - 0.5*G*t*t;
+    return x*x + y*y - L*L;
+  };
+
+  /*  扫描首个「负 → 非负」的穿越（f(0⁺) < 0，绷直时回到 0）                  */
+  const tmax = Math.max(0.8, 3.0 * Math.sqrt(2*L/G));
+  const N = 20000, h = tmax / N;
+  let prev = f(1e-12), prevT = 1e-12, tau = -1;
+  for(let i = 1; i <= N; i++){
+    const t = i * h, cur = f(t);
+    if(prev < 0 && cur >= 0){
+      let a = prevT, b = t;
+      for(let k = 0; k < 80; k++){
+        const m = 0.5*(a + b);
+        if(f(m) < 0) a = m; else b = m;
+      }
+      tau = 0.5*(a + b);
+      break;
+    }
+    prev = cur; prevT = t;
+  }
+  if(!(tau > 1e-9)) return null;
+
+  const Bx = P0x + vx*tau, By = P0y + vy*tau - 0.5*G*tau*tau;
+  const r  = Math.hypot(Bx, By);
+  if(Math.abs(r - L) > 1e-6) return null;
+
+  /*  绷直瞬间：保留切向分量，径向分量被绳吸收                                 */
+  const vxT = vx, vyT = vy - G*tau;
+  const urx = Bx / r, ury = By / r;
+  const vr  = vxT*urx + vyT*ury;
+  const utx = -ury, uty = urx;
+  const vt  = vxT*utx + vyT*uty;
+
+  return { thB: Math.atan2(Bx, -By), tau, vt, vr, r, X: Bx, Y: By };
+}
+
+
+/*  完整状态：solve(v0, t, model) → {th, v, T, mode, dir, thdot, side, X, Y, slack, proj, velX, velY}
+    th ∈ [0, θend] 为「自最低点量起的偏角」，side ∈ {+1, −1} 指出小球在右/左半圆，
+    thdot = sign(dθ/dt)：θ 正在增大(+1)还是减小(−1)，用于切向速度的真实方向。
+
+    model = 'string'（默认，轻绳，T ≥ 0，会松弛） 或 'rod'（轻杆，始终约束在圆周）。
+
+    摆动（θend = θmax < π，4 轮） / 转动（θend = π，2 轮）由 angOf 统一给出以
+    「自最低点起算的带符号偏角」，于是整圈天然连续。
+    物理速度 ∝ (cos θ, sin θ)·θ̇ 再乘 side；投影到屏幕（y 翻转）即
+      (side·cosθ·θ̇, −sinθ·θ̇)。
+    注意：'dir' 是「运动朝向」的语义标签，切向箭头必须用 thdot —— 摆动第三轮二者符号相反。 */
+function solve(v0, t, model){
+  model = model || MODEL;
+  if(v0 < 1e-6) return finish(v0, 0, 1, 1, 0, false);
+
+  const T = tableFor(v0);
+
+  /*  时间周期取决于约束模型：
+        轻杆        → 纯圆周运动，周期 = T.Tper
+        轻绳（松弛）→ 「右半程 + 左半程」构成一个完整往返，时长由 stringTrip 给出，
+                      与 T.Tper 不同，必须作为该模型下的真实周期，
+                      否则 τ 会被 Tper 截断而出现跳变。                       */
+  const per = (model === 'string' && T.sl) ? stringTrip(v0).per : T.Tper;
+  let   tau = ((t % per) + per) % per;
+
+  /* ══ 轻绳 + 松弛：一个「完整往返」= 右半程 + 左半程 ══
+     右半程以 v₀ 出发冲上右侧，左半程以「右半程回到最低点时的残余速率」出发冲上左侧。
+     两个半程各自可能是松弛三段（上行弧 / 抛体 / 回程弧）或普通摆动。
+     这样小球才会左右两个半圆都走到 —— 只算一侧会让左半圈消失。                 */
+  if(model === 'string' && T.sl){
+    const trip = stringTrip(v0);
+    const second = tau >= trip.R.dur;
+    const H     = second ? trip.L : trip.R;
+    const local = second ? tau - trip.R.dur : tau;
+    const sgn   = second ? -1 : 1;          // −1 → 轨迹镜像到左半圆
+    return solveHalf(H, local, sgn, v0);
+  }
+
+  /* ══ 轻杆 / 无松弛：标准圆周解 ══ */
+  const A   = angOf(v0, tau);
+  const th  = Math.abs(A.d);
+  const pos = ballPos(th, A.d >= 0 ? 1 : -1);
+  return { th, v: Math.sqrt(speedSq(v0, th)), T: tension(v0, th), mode: modeOf(v0),
+           dir: A.thdot, thdot: A.thdot, side: A.d >= 0 ? 1 : -1,
+           X: pos.x, Y: pos.y, slack: false, taut: true, proj: false,
+           velX: Math.cos(th) * A.thdot * (A.d >= 0 ? 1 : -1),
+           velY: Math.sin(th) * A.thdot };
+}
+
+/*  在「半个往返」内部求解：local ∈ [0, H.dur)，sgn = +1 右半圆 / −1 左半圆。
+    v0o 是原始的 v₀，只用于 modeOf（运动状态标签），速率一律取自 H.v。       */
+function solveHalf(H, local, sgn, v0o){
+  if(H.kind === 'slack'){
+    const tB = H.tB, tC = tB + H.tauF;
+    if(local < tB){                         // ① 上行弧：绳绷紧，θ 单调增
+      const th = thAt(H.T, local);
+      return finish(v0o, th, 1, sgn, Math.sqrt(speedSq(H.v, th)), false);
+    }
+    if(local < tC){                         // ② 抛体：绳松弛，走真实抛物线
+      return finishProj(v0o, projState(H, local - tB, sgn), sgn);
+    }
+    /* ③ 回程弧 θ_b → 0：以折减能量 vt 为锚，按「角度 → 时间」真实反演。
+         v²(θ) = vt² + 2gL(cos θ − cos|θ_b|)（锚点在高角端 |θ_b|）。
+         落点若越过中线（θ_b < 0），球实际在另一侧，故侧别要翻转。            */
+    const f   = H.tDown > 1e-12 ? Math.min(1, (local - tC) / H.tDown) : 1;
+    const thA = Math.abs(H.thB);
+    const th  = thA * (1 - f);
+    const v   = Math.sqrt(Math.max(H.vt*H.vt + 2*G*L*(Math.cos(th) - Math.cos(thA)), 0));
+    const sd  = H.thB >= 0 ? sgn : -sgn;
+    return finish(v0o, th, -1, sd, v, false, H.vt, H.thB);
+  }
+  if(H.kind === 'swing'){                   // 普通摆动：0 → θmax → 0
+    const half = H.dur / 2;
+    const up   = local < half;
+    const th   = thAt(H.T, up ? local : H.dur - local);
+    return finish(v0o, th, up ? 1 : -1, sgn, Math.sqrt(speedSq(H.v, th)), false);
+  }
+  /*  兜底：整周转动的半程 —— 右半程 0→π，左半程 π→0                        */
+  const th = sgn > 0 ? thAt(H.T, local) : thAt(H.T, H.dur - local);
+  return finish(v0o, th, sgn > 0 ? 1 : -1, sgn, Math.sqrt(speedSq(H.v, th)), false);
+}
+
+/*  打包「圆周段」的状态。
+    v 缺省时按全能量 √speedSq(v0,θ) 计算，适用于上行弧与轻杆全程。
+    绷直后的回程弧能量已折减，必须显式传入 v；此时张力也须用同一个 v 重算，
+    否则读数会退回「假设绳未松弛」时的高值（这是此前的读数不一致根源）。        */
+function finish(v0, th, dirSign, sideSign, v, slack, vt, thB){
+  const pos = ballPos(th, sideSign);
+  const vv  = (v === undefined || v === null) ? Math.sqrt(speedSq(v0, th)) : v;
+  const Tv  = M*vv*vv/L + G*M*Math.cos(th);         // 径向牛顿第二定律，用真实速率
+  /*  回程弧的切向速度方向：沿 θ 减小方向（dirSign = −1），侧别沿用落点那一侧   */
+  return { th, v: vv, T: Tv, mode: modeOf(v0),
+           dir: dirSign, thdot: dirSign, side: sideSign,
+           X: pos.x, Y: pos.y, slack: !!slack, taut: !slack, proj: false,
+           velX: Math.cos(th) * dirSign * sideSign,
+           velY: Math.sin(th) * dirSign,
+           vt: vt, thB: thB };
+}
+/*  打包「抛体段」的状态。sgn = +1 右半圆 / −1 左半圆。  */
+function finishProj(v0, sl, sgn){
+  const sd = (sgn === undefined) ? 1 : sgn;
+  return { th: sl.th, v: sl.v, T: 0, mode: modeOf(v0), dir: 1, thdot: 1, side: sd,
+           X: sl.X, Y: sl.Y, slack: true, taut: false, proj: true,
+           velX: sl.vx, velY: sl.vy };
+}
+
+/*  抛体段的瞬时状态（u = 进入松弛后的时长，0 ≤ u ≤ tauF）。
+    H 是所在「半程」的结构（提供 θ_s 与该半程的起始速率 H.v）；
+    sgn 把轨迹镜像到左半圆：X 与 vx 取反，Y、vy 不变。                        */
+function projState(H, u, sgn){
+  const thA = H.thS;
+  const v   = Math.sqrt(speedSq(H.v, thA));
+  const vx0 = v*Math.cos(thA), vy0 = v*Math.sin(thA);
+  const P0x = L*Math.sin(thA), P0y = -L*Math.cos(thA);
+  const X   = P0x + vx0*u;
+  const Y   = P0y + vy0*u - 0.5*G*u*u;
+  const vX  = vx0, vY = vy0 - G*u;
+  return { X: sgn*X, Y, v: Math.hypot(vX, vY), vx: sgn*vX, vy: vY, u,
+           th: Math.atan2(Math.abs(X), -Y) };
+}
+function modeOf(v0){
+  if(Math.abs(v0 - V_CRIT) < 0.012) return 'critical';
+  return v0 >= V_LIMIT ? 'rotate' : 'swing';
+}
+/* ══════════════════════════════════════════════════════════════════════
+   「半个往返」halfTrip(v)：小球从最低点以速率 v 出发、冲上某一侧、再回到最低点。
+   返回 { kind, dur, vEnd, v, ... }：
+     kind='slack' —— 该侧会松弛：上行弧 0→θ_s + 抛体 θ_s→θ_b + 回程弧 θ_b→0
+     kind='swing' —— 能量不足以松弛，普通摆动：0→θmax→0
+     kind='rot'   —— 兜底（能量大到能过顶）：0→π
+
+   ⚠️⚠️ 最关键的一点：vEnd 是该半程结束（回到最低点）时的速率。
+   绳绷直瞬间的冲量会抹掉径向动能，所以 vEnd < v —— 而且损失幅度随 v 剧烈变化：
+        v₀=4.5  → 损失 0.03%   vEnd=4.4992（左半程仍会松弛）
+        v₀=5    → 损失 14.0%   vEnd=4.6361（左半程仍会松弛）
+        v₀=5.5  → 损失 64.6%   vEnd=3.2711（左半程转为普通摆动）
+        v₀=6    → 损失 98.8%   vEnd=0.6460（左半程只剩小幅摆动）
+        v₀=6.5  → 损失 45.6%   vEnd=4.7948（左半程又恢复松弛，非单调！）
+   因此**左半程必须用 vEnd 重新计算，绝不能简单镜像右半程**。
+   ══════════════════════════════════════════════════════════════════════ */
+function halfTrip(v){
+  const T = tableFor(v);
+  if(T.sl){
+    const S   = T.sl;
+    const tB  = tAt(T, S.thS);
+    const dur = tB + S.tauF + S.tDown;
+    const vEnd = Math.sqrt(Math.max(S.vt*S.vt + 2*G*L*(1 - Math.cos(S.thB)), 0));
+    return { kind:'slack', dur, vEnd, v, T,
+             tB, tauF:S.tauF, tDown:S.tDown, thS:S.thS, thB:S.thB, vt:S.vt };
+  }
+  const { swing, thEnd } = lapsGeom(v);
+  if(swing){
+    const q = tAt(T, thEnd);
+    return { kind:'swing', dur: 2*q, vEnd: v, v, T, q, thMax: thEnd };
+  }
+  return { kind:'rot', dur: tAt(T, Math.PI), vEnd: v, v, T, thMax: Math.PI };
+}
+
+/*  一个完整往返 = 右半程（速率 v₀）+ 左半程（速率 = 右半程的残余 vEnd）。
+    ⚠️ 先前只算右半程就当整周期循环 —— 那是「左半圈消失」的根因：
+       球回到最低点时仍有 ~v₀ 的速度且朝左，必须继续冲上左半圆。            */
+const tripCache = new Map();
+function stringTrip(v0){
+  const key = Math.round(v0 * 1e6);
+  let trip = tripCache.get(key);
+  if(trip) return trip;
+  const R = halfTrip(v0);          // 右半程
+  const Lf = halfTrip(R.vEnd);     // 左半程（用残余速率，不是 v₀！）
+  trip = { R, L: Lf, per: R.dur + Lf.dur };
+  tripCache.set(key, trip);
+  return trip;
+}
+
+function stringCycle(v0){
+  const T = tableFor(v0);
+  return T.sl ? stringTrip(v0).per : T.Tper;
+}
+function periodOf(v0, model){
+  if(v0 < 1e-6) return 0;
+  const T = tableFor(v0);
+  return ((model || MODEL) === 'string' && T.sl) ? stringTrip(v0).per : T.Tper;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   3 · 应用状态
+   ═══════════════════════════════════════════════════════════════ */
+const S = { v0: 4.5, t: 0, playing: true, last: 0 };
+let MODEL = 'string';        // 'string'（轻绳，会松弛） | 'rod'（轻杆，始终约束）
+let COMPARE = true;          // 是否叠画另一模型的对照轨迹
+
+const el = id => document.getElementById(id);
+const MONO = '"JetBrains Mono",ui-monospace,monospace';
+const UI   = '"Instrument Sans",system-ui,sans-serif';
+
+/* ═══════════════════════════════════════════════════════════════
+   4 · 主视图 Canvas
+   ═══════════════════════════════════════════════════════════════ */
+const cv = el('vp'), ctx = cv.getContext('2d');
+let W = 920, H = 720, CX = 460, CY = 120, R = 300;
+
+function fitCanvas(){
+  const rect = cv.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(280, Math.round(rect.width));
+
+  /* 半径同时受宽、高约束；留出边距容纳力矢量、θ 弧与「最高点」标注：
+       水平：左右各留 6% 宽度；竖直：上方留 54px（标注），下方留 12% 高度。 */
+  const RmaxW = W * 0.44;
+  const RmaxH = (W * 720 / 920) * 0.88 - 54;
+  R = Math.max(70, Math.min(RmaxW, RmaxH));
+
+  /* 底部余量必须容纳「小球在最低点时向下的 mg 箭头 + 球半径」，
+     否则重力矢量会被画布下缘裁掉。mg 箭头长 = 0.196·R（上限 0.22·R）。 */
+  const br  = Math.max(10, Math.min(14, R * 0.045));
+  const below = Math.min(0.22 * R, 0.16 * R * Math.sqrt(9.8 / 5)) + br + 10;
+  H = Math.round(54 + 2 * R + below);
+  cv.width  = Math.round(W * dpr);
+  cv.height = Math.round(H * dpr);
+  cv.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  /* O 位于圆周顶端之内，小球垂在下方 */
+  CX = W / 2;
+  CY = 54 + R;
+}
+
+/*  物理坐标 (米, y 向上, 原点在 O) → 屏幕坐标 (px, y 向下)  */
+const sx = x => CX + x * R;
+const sy = y => CY - y * R;
+
+/*  θ (自最低点逆时针) → 物理坐标。
+    小球位置:  x = L sin θ · side ,  y = −L cos θ
+      side = +1 → 右半圆；side = −1 → 左半圆（镜像）
+    注意：θ = 0 在最低点（O 正下方），θ = π 在最高点（O 正上方）。     */
+function ballPos(th, side){
+  const s = (side === undefined) ? 1 : side;
+  return { x: s * L * Math.sin(th), y: -L * Math.cos(th) };
+}
+
+/*  力 → 像素长度。以圆周半径 R 为基准（而非固定像素），
+    保证任何画布尺寸下力矢量都按同一比例缩放、始终落在画布内。
+    参考刻度：5 N ⇔ 0.16·R；√ 压缩大值避免大张力冲破画面；
+    上限 0.22·R 使 mg(=9.8N→0.224R) / F_r / T 三者在最低点仍可同时看清。 */
+const forcePx = f => Math.min(0.22 * R, 0.16 * R * Math.sqrt(Math.max(f, 0) / 5));
+const MG_PX = () => forcePx(G * M);            // 重力矢量像素长（几何布局需引用）
+
+/*  画箭头（含箭头头部） */
+function arrow(x0, y0, dx, dy, color, width, dash){
+  const len = Math.hypot(dx, dy);
+  if(len < 1.2) return;
+  const ux = dx/len, uy = dy/len;
+  ctx.save();
+  ctx.strokeStyle = color; ctx.fillStyle = color;
+  ctx.lineWidth = width; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if(dash) ctx.setLineDash(dash);
+  const head = Math.min(12, Math.max(6.5, width * 3));
+  const body = Math.max(0, len - head);
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0 + ux*body, y0 + uy*body); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(x0 + ux*len, y0 + uy*len);
+  ctx.lineTo(x0 + ux*body - uy*head*0.40, y0 + uy*body + ux*head*0.40);
+  ctx.lineTo(x0 + ux*body + uy*head*0.40, y0 + uy*body - ux*head*0.40);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function draw(){
+  const st  = solve(S.v0, S.t, MODEL);
+  const Bx  = sx(st.X), By = sy(st.Y);
+  const Ox  = sx(0),    Oy = sy(0);
+  const br0 = Math.max(10, Math.min(14, R * 0.045));      // 小球屏幕半径
+
+  ctx.clearRect(0, 0, W, H);
+
+  /* ── 可达圆弧轨迹 ── */
+  const thMax = thetaMax(S.v0);
+  ctx.save();
+  if(S.v0 >= V_LIMIT){
+    /* 整圆：实线，能转过去 */
+    ctx.strokeStyle = 'oklch(80% 0.050 165)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(Ox, Oy, R, 0, 7); ctx.stroke();
+  } else {
+    /* 摆动：可达弧实线（两侧对称，围绕最低点），不可达弧虚线（顶部）
+       屏幕角约定：θ=0（最低点）→ π/2；θ 增大 → 屏幕角减小。
+       可达弧 = 屏幕角 [π/2 − θmax , π/2 + θmax] 逆时针（穿过正下方 90°）；
+       不可达弧 = 其补集，逆时针从 π/2 + θmax 到 π/2 − θmax（穿过正上方 0°）。 */
+    const a0 = Math.PI/2;                  // 屏幕角：θ=0 → 正下方
+    ctx.strokeStyle = 'oklch(80% 0.050 165)';
+    ctx.lineWidth = 1.7;
+    ctx.beginPath(); ctx.arc(Ox, Oy, R, a0 - thMax, a0 + thMax); ctx.stroke();
+    ctx.strokeStyle = 'oklch(89% 0.008 240)';
+    ctx.lineWidth = 1.3; ctx.setLineDash([5, 7]);
+    ctx.beginPath(); ctx.arc(Ox, Oy, R, a0 + thMax, a0 - thMax); ctx.stroke();
+  }
+  ctx.restore();
+
+  /* ── 竖直参考轴（O 正上方到正下方） ── */
+  ctx.save();
+  ctx.strokeStyle = 'oklch(86% 0.014 240)';
+  ctx.lineWidth = 1; ctx.setLineDash([4, 6]);
+  ctx.beginPath(); ctx.moveTo(Ox, Oy - R - 16); ctx.lineTo(Ox, Oy + R + 16); ctx.stroke();
+  ctx.restore();
+
+  /* ── 角度 θ 的弧与标注（镜像到小球所在的半圆） ── */
+  if(st.th > 0.03){
+    /* 屏幕角 a ⇒ 点 (cos a, sin a)，屏幕 y 向下。
+       θ=0（最低点）→ a = π/2；小球处 a1 = π/2 − side·θ。
+       从 a0 扫到 a1 的方向须让弧落在小球所在的一侧（经枚举验证）：
+         side = +1（右半圆）→ 顺时针（anticlockwise = false）
+         side = −1（左半圆）→ 逆时针（anticlockwise = true）        */
+    const a0 = Math.PI/2;
+    const a1 = a0 - st.side * st.th;
+    const rr = Math.min(R * 0.30, 86);
+    ctx.save();
+    /* 淡色扇形，让「夹角 θ」一目了然 */
+    ctx.beginPath();
+    ctx.moveTo(Ox, Oy);
+    ctx.arc(Ox, Oy, rr, a0, a1, st.side < 0);
+    ctx.closePath();
+    ctx.fillStyle = 'oklch(62% 0.090 200 / .10)';
+    ctx.fill();
+    /* 弧线 */
+    ctx.beginPath(); ctx.arc(Ox, Oy, rr, a0, a1, st.side < 0);
+    ctx.strokeStyle = 'oklch(62% 0.090 200 / .8)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    /* 竖直参考边（最低点方向），与弧构成完整扇形 */
+    ctx.beginPath(); ctx.moveTo(Ox, Oy); ctx.lineTo(Ox, Oy + rr);
+    ctx.strokeStyle = 'oklch(62% 0.090 200 / .45)';
+    ctx.lineWidth = 1.2; ctx.stroke();
+    /* 标签置于弧的中点角、半径 rr+17 处，落在小球所在半圆一侧 */
+    const am = (a0 + a1) / 2;
+    const lx = Ox + Math.cos(am) * (rr + 17);
+    const ly = Oy + Math.sin(am) * (rr + 17);
+    ctx.fillStyle = 'oklch(48% 0.088 200)';
+    ctx.font = `500 13px ${MONO}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('θ', lx, ly);
+    ctx.restore();
+  }
+
+  /*  绳（轻绳）/ 杆（轻杆）—— 二者外观与力学语义都不同：
+        绳：绷紧时是一条直线；松弛时下垂成一条曲线；
+        杆：永远是一条直线，即使「T<0」也表示杆在支撑小球。
+      若当前模型下会松弛，则用半透明的虚线叠画出另一模型的对照位置。            */
+  const stOther = COMPARE && solve(S.v0, S.t, MODEL === 'rod' ? 'string' : 'rod');
+  const sameAsShown = stOther && Math.hypot(stOther.X - st.X, stOther.Y - st.Y) < 1e-4;
+  if(stOther && !sameAsShown){
+    const oBx = sx(stOther.X), oBy = sy(stOther.Y);
+    ctx.save();
+    ctx.globalAlpha = 0.32;
+    ctx.setLineDash([4, 5]);
+    ctx.strokeStyle = 'oklch(48% 0.030 165)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(Ox, Oy); ctx.lineTo(oBx, oBy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath(); ctx.arc(oBx, oBy, Math.max(7, br0 * 0.72), 0, 7);
+    ctx.strokeStyle = 'oklch(52% 0.040 165)'; ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.save();
+  if(st.slack){
+    /* 松弛：绳不再拉小球，画成一条下垂的曲线（自然松弛形态） */
+    const dx = Bx - Ox, dy = By - Oy;
+    const dist = Math.hypot(dx, dy) || 1;
+    const sag  = Math.min(28, Math.max(6, (R - dist) * 0.9 + 8));
+    const mx = (Ox + Bx) / 2, my = (Oy + By) / 2;
+    const px = -dy / dist, py = dx / dist;          // 法向
+    const cx1 = mx + px * sag, cy1 = my + py * sag;
+    ctx.strokeStyle = 'oklch(58% 0.055 165)';
+    ctx.lineWidth = 2.2;
+    ctx.lineCap = 'round';
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.moveTo(Ox, Oy);
+    ctx.quadraticCurveTo(cx1, cy1, Bx, By);
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    ctx.strokeStyle = MODEL === 'rod' ? 'oklch(32% 0.060 165)' : 'oklch(38% 0.070 165)';
+    ctx.lineWidth = MODEL === 'rod' ? 2.9 : 2.5;
+    ctx.beginPath(); ctx.moveTo(Ox, Oy); ctx.lineTo(Bx, By); ctx.stroke();
+    ctx.restore();
+  }
+
+  /* ── 力矢量 ──
+     速度方向：有张力时由运动学给出（含半圆镜像 side 与 θ 变化方向 thdot）；
+     绳松弛时小球做抛体，速度是真实的 (vx, vy)，直接投影（屏幕 y 翻转）。   */
+  let tvx, tvy;
+  if(st.proj && st.velX !== undefined){
+    tvx = st.velX; tvy = -st.velY;
+  } else {
+    tvx =  Math.cos(st.th) * st.thdot * st.side;
+    tvy = -Math.sin(st.th) * st.thdot;
+  }
+
+  /* 1) 重力 mg —— 竖直向下 */
+  arrow(Bx, By, 0, forcePx(G*M), 'oklch(52% 0.075 275)', 2.6);
+
+  /* 2) 速度 v —— 切向，沿运动方向 */
+  const vLen = Math.min(forcePx(st.v), R * 0.92);
+  arrow(Bx, By, tvx * vLen, tvy * vLen, 'oklch(45% 0.090 235)', 2.6);
+
+  /*  张力/支持力 —— 沿绳指向 O。
+      方向直接由屏幕坐标差给出：u = (O − B)/|O − B|。
+      轻绳模型：T < 0 物理上不存在 ⇒ 不画（此时应该正在松弛）；
+      轻杆模型：T < 0 表示杆对球的支持力，沿反方向推离 O。                 */
+  const uxT = (Ox - Bx), uyT = (Oy - By);
+  const dnT = Math.hypot(uxT, uyT) || 1;
+  if(MODEL === 'rod'){
+    const sgn = Math.sign(st.T) || 1;
+    const rLen = forcePx(Math.abs(st.T));
+    arrow(Bx, By, uxT/dnT * rLen * sgn, uyT/dnT * rLen * sgn,
+          sgn > 0 ? 'oklch(55% 0.180 40)' : 'oklch(55% 0.130 55)', 3.3);
+  } else if(st.T > 0.02){
+    const tLen = forcePx(st.T);
+    arrow(Bx, By, uxT/dnT * tLen, uyT/dnT * tLen, 'oklch(55% 0.180 40)', 3.3);
+  }
+
+  /* 4) 向心力 F_r = mv²/L —— 只在绳绷紧、做圆周运动时有意义 */
+  if(!st.slack){
+    const Fr = M * st.v * st.v / L;
+    if(Fr > 0.04){
+      const fLen = forcePx(Fr);
+      arrow(Bx, By, uxT/dnT * fLen, uyT/dnT * fLen, 'oklch(45% 0.120 155)', 2.1);
+    }
+  }
+
+  /* 5) 重力沿绳分量 —— 已在右侧「力的分解」面板中数值化呈现，画布上不重复 */
+
+  /* ── 定点 O ── */
+  ctx.save();
+  ctx.fillStyle = 'oklch(26% 0.045 165)';
+  ctx.beginPath(); ctx.arc(Ox, Oy, 5.5, 0, 7); ctx.fill();
+  ctx.fillStyle = 'oklch(99% 0.002 240)';
+  ctx.beginPath(); ctx.arc(Ox, Oy, 2, 0, 7); ctx.fill();
+  ctx.fillStyle = 'oklch(38% 0.070 165)';
+  ctx.font = `700 13px ${MONO}`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText('O', Ox + 10, Oy - 5);
+  ctx.restore();
+
+  /* ── 小球 ── */
+  const br = br0;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(Bx, By + 2.5, br, 0, 7);
+  ctx.fillStyle = 'oklch(24% 0.014 240 / .14)'; ctx.fill();
+  ctx.restore();
+
+  const grad = ctx.createRadialGradient(Bx - br*0.34, By - br*0.40, br*0.1, Bx, By, br);
+  grad.addColorStop(0, 'oklch(72% 0.150 40)');
+  grad.addColorStop(1, 'oklch(48% 0.165 40)');
+  ctx.save();
+  ctx.beginPath(); ctx.arc(Bx, By, br, 0, 7);
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = 'oklch(38% 0.140 40)'; ctx.lineWidth = 1.4; ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = 'oklch(99% 0.01 40)';
+  ctx.font = `700 ${Math.round(br*0.85)}px ${MONO}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText('m', Bx, By + 0.5);
+  ctx.restore();
+
+  /* ── 最高点标记（仅摆动时提示"到不了"） ── */
+  if(S.v0 < V_LIMIT && thMax > 0.35){
+    const tx = Ox, ty = Oy - R;
+    ctx.save();
+    ctx.strokeStyle = 'oklch(62% 0.090 200 / .55)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.arc(tx, ty, 4, 0, 7); ctx.stroke();
+    ctx.fillStyle = 'oklch(56% 0.010 240)';
+    ctx.font = `600 11px ${UI}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('最高点 · 不可达', tx, ty - 22);
+    ctx.restore();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   5 · T(θ) 张力分布曲线
+   ═══════════════════════════════════════════════════════════════ */
+const cc = el('curve'), cx2 = cc.getContext('2d');
+let CW = 640, CH = 300;
+
+function fitCurve(){
+  const rect = cc.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  CW = Math.max(200, Math.round(rect.width));
+  CH = Math.round(CW * 300 / 640);
+  cc.width  = Math.round(CW * dpr);
+  cc.height = Math.round(CH * dpr);
+  cc.style.height = CH + 'px';
+  cx2.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function niceStep(v){
+  const raw = v / 4, p = Math.pow(10, Math.floor(Math.log10(raw))), n = raw / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+}
+
+function drawCurve(){
+  const padL = 42, padR = 14, padT = 16, padB = 30;
+  const iw = CW - padL - padR, ih = CH - padT - padB;
+  cx2.clearRect(0, 0, CW, CH);
+
+  const v0 = S.v0;
+  const thLim = thetaMax(v0);                 // 可达上界（rad）
+
+  /* 采样 T(θ) */
+  const N = 240, pts = [];
+  let Tmax = 0;
+  for(let i = 0; i <= N; i++){
+    const f = i / N;                          // 0 → 1 映射到 0 → θlim
+    const th = thLim * f;
+    const Tv = tension(v0, th);
+    pts.push({ th, Tv });
+    if(Tv > Tmax) Tmax = Tv;
+  }
+  const Ttop = Math.max(Tmax * 1.14, 8);
+
+  const X = th => padL + (th / Math.PI) * iw;   // 横轴固定 0–180°
+  const Y = Tv => padT + ih - (Tv / Ttop) * ih;
+
+  /* 网格 */
+  cx2.save();
+  cx2.strokeStyle = 'oklch(93% 0.008 240)'; cx2.lineWidth = 1;
+  const gT = niceStep(Ttop);
+  for(let Tv = 0; Tv <= Ttop; Tv += gT){
+    cx2.beginPath(); cx2.moveTo(padL, Y(Tv)); cx2.lineTo(CW - padR, Y(Tv)); cx2.stroke();
+  }
+  for(let d = 0; d <= 180; d += 45){
+    cx2.beginPath(); cx2.moveTo(X(d*Math.PI/180), padT); cx2.lineTo(X(d*Math.PI/180), padT + ih); cx2.stroke();
+  }
+  cx2.restore();
+
+  /* 不可达区底色 */
+  if(thLim < Math.PI - 1e-6){
+    cx2.save();
+    cx2.fillStyle = 'oklch(96.5% 0.004 240)';
+    cx2.fillRect(X(thLim), padT, (CW - padR) - X(thLim), ih);
+    cx2.restore();
+  }
+
+  /* 轴刻度 */
+  cx2.save();
+  cx2.fillStyle = 'oklch(56% 0.010 240)';
+  cx2.font = `500 10px ${MONO}`;
+  cx2.textAlign = 'right'; cx2.textBaseline = 'middle';
+  for(let Tv = 0; Tv <= Ttop; Tv += gT){
+    cx2.fillText(Tv.toFixed(Tv < 10 ? 0 : 0), padL - 6, Y(Tv));
+  }
+  cx2.textAlign = 'center'; cx2.textBaseline = 'top';
+  [0, 45, 90, 135, 180].forEach(d => cx2.fillText(d + '°', X(d*Math.PI/180), padT + ih + 7));
+  cx2.textAlign = 'left'; cx2.textBaseline = 'top';
+  cx2.fillStyle = 'oklch(42% 0.012 240)';
+  cx2.font = `700 10px ${MONO}`;
+  cx2.fillText('T / N', padL - 34, 1);
+  cx2.restore();
+
+  /* 曲线 + 填充 */
+  cx2.save();
+  cx2.beginPath();
+  pts.forEach((p, i) => {
+    const x = X(p.th), y = Y(p.Tv);
+    i ? cx2.lineTo(x, y) : cx2.moveTo(x, y);
+  });
+  cx2.strokeStyle = 'oklch(55% 0.180 40)';
+  cx2.lineWidth = 2.5; cx2.lineJoin = 'round'; cx2.lineCap = 'round';
+  cx2.stroke();
+  cx2.lineTo(X(thLim), Y(0)); cx2.lineTo(X(0), Y(0)); cx2.closePath();
+  cx2.fillStyle = 'oklch(62% 0.185 40 / .10)'; cx2.fill();
+  cx2.restore();
+
+  /* 当前位置游标 */
+  const st = solve(v0, S.t, MODEL);
+  cx2.save();
+  const cxp = X(st.th), cyp = Y(Math.max(st.T, 0));
+  cx2.strokeStyle = 'oklch(45% 0.120 155 / .5)';
+  cx2.lineWidth = 1; cx2.setLineDash([3, 3]);
+  cx2.beginPath(); cx2.moveTo(cxp, padT); cx2.lineTo(cxp, padT + ih); cx2.stroke();
+  cx2.setLineDash([]);
+  cx2.beginPath(); cx2.arc(cxp, cyp, 4.5, 0, 7);
+  cx2.fillStyle = 'oklch(45% 0.120 155)'; cx2.fill();
+  cx2.strokeStyle = 'oklch(99.2% 0.002 240)'; cx2.lineWidth = 2; cx2.stroke();
+  cx2.restore();
+
+  /* 不可达标注 */
+  if(thLim < Math.PI - 0.08){
+    cx2.save();
+    cx2.fillStyle = 'oklch(60% 0.010 240)';
+    cx2.font = `600 10px ${UI}`;
+    cx2.textAlign = 'right'; cx2.textBaseline = 'middle';
+    cx2.fillText('不可达区域', CW - padR - 6, padT + ih * 0.5);
+    cx2.restore();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   6 · UI 绑定
+   ═══════════════════════════════════════════════════════════════ */
+const sV0 = el('s-v0'),  sT = el('s-t');
+const oV0 = el('o-v0'),  oT = el('o-t');
+const bPlay = el('b-play'), bPlayTxt = el('b-play-txt'), bReset = el('b-reset');
+const regimeEl = el('regime'), regimeTxt = el('regime-txt');
+const hintEl = el('hint'), pRatio = el('p-ratio'), pState = el('p-state');
+const slackFlag = el('slack-flag'), segNote = el('seg-note');
+const segBtns = Array.from(document.querySelectorAll('#seg-model button'));
+
+const REGIME = {
+  swing:    ['摆动往返',      '小球达不到最高点，在 θmax 处折返；低 v₀ 时绳全程绷紧'],
+  critical: ['临界 · 恰好过顶', 'v₀ = √(5gL) = 7.00 m/s，顶部张力恰为零'],
+  rotate:   ['整周转动',      '小球能越过最高点，做完整圆周运动']
+};
+/*  状态标签随约束模型变化：轻绳会出现「松弛」子状态，轻杆不会。  */
+const REGIME_STRING = {
+  swing:    ['摆动 · 绳会松弛', '小球在 θs 处绳松弛、脱离圆周做抛体，绳绷直后再被拉回；绳的冲量会夺走一部分能量'],
+  critical: ['临界 · 恰好过顶',  'v₀ = √(5gL) = 7.00 m/s，顶部张力恰为零'],
+  rotate:   ['整周转动 · 绳绷紧', 'v₀ ≥ 2√(gL)：小球越过最高点，全程 T > 0，绳不松弛']
+};
+const modeOfRaw = v0 => v0 >= V_LIMIT ? 'rotate'
+                      : (Math.abs(v0 - V_CRIT) < 0.012 ? 'critical' : 'swing');
+
+/*  当前模型下的状态描述（轻绳松弛带优先于 v₀ 分区）  */
+function regimeInfo(){
+  const r = modeOfRaw(S.v0);
+  if(MODEL === 'string'){
+    const T = tableFor(S.v0);
+    if(T.sl) return ['摆动 · 绳会松弛', REGIME_STRING.swing[1], 'slack'];
+    return [REGIME_STRING[r][0], REGIME_STRING[r][1], r];
+  }
+  return [REGIME[r][0], REGIME[r][1], r];
+}
+
+function paint(input){
+  const min = +input.min, max = +input.max, v = +input.value;
+  input.style.setProperty('--fill', ((v - min) / (max - min) * 100) + '%');
+}
+
+/*  时间滑块满量程 = 当前周期（周期随 v₀、模型变，故每次需重设 max）
+    ⚠️ 轻绳松弛后真实周期是「右半程 + 左半程」之和（stringTrip）；
+       两个半程各自按当时的速率计算，因为绳的冲量会逐次夺走能量。
+       与轻杆的 Tper 不同；必须传 MODEL，否则滑块量程与实际循环不匹配。     */
+function syncTimeSlider(){
+  const per = periodOf(S.v0, MODEL);
+  const v   = Math.min(S.t, per);
+  S.t = v;
+  sT.max = per.toFixed(4);
+  sT.value = v;
+  paint(sT);
+}
+
+/* 轻绳只能拉不能推：T ≤ 0 即松弛。轻杆可推可拉，T 取负值代表支持力。 */
+const tensionOf = st => (MODEL === 'string' ? Math.max(st.T, 0) : st.T);
+
+function syncAll(){
+  const st = solve(S.v0, S.t, MODEL);
+  const [rTxt, rTip, rKey] = regimeInfo();
+
+  regimeEl.dataset.r = rKey;
+  regimeTxt.textContent = rTxt;
+  regimeEl.title = rTip;
+
+  pRatio.textContent = (S.v0 / V_CRIT).toFixed(3);
+  pState.textContent = rTxt;
+
+  const Tw = tensionOf(st);
+  el('r-v').innerHTML  = st.v.toFixed(2) + '<small>m/s</small>';
+  el('r-th').innerHTML = (st.th * 180 / Math.PI).toFixed(1) + '<small>°</small>';
+  el('r-T').innerHTML  = Tw.toFixed(2) + '<small>N</small>';
+  el('r-mg').innerHTML = (G*M).toFixed(2) + '<small>N</small>';
+  el('r-Fr').innerHTML = (M*st.v*st.v/L).toFixed(2) + '<small>N</small>';
+
+  /*  力的分解：mg 沿绳分量（背离 O）与切向分量。
+      球在最低点下方 (θ=0)：mg 全部沿绳、指向 O，沿绳分量 = −mg。
+      球在最高点上方 (θ=π)：mg 全部沿绳、背离 O，沿绳分量 = +mg。          */
+  const mgr = -G*M*Math.cos(st.th);            // 沿绳（背离 O）为正
+  const mgt =  G*M*Math.sin(st.th);            // 切向（θ 增大方向）为正
+  el('d-mgr').innerHTML = mgr.toFixed(2) + '<small>N</small>';
+  el('d-mgt').innerHTML = mgt.toFixed(2) + '<small>N</small>';
+
+  /*  合力（径向）：轻杆 = T − mg cos θ（可为负，表示指向外）；
+      轻绳松弛段没有径向合力约束，显示 0。                                 */
+  const FrNet = st.slack ? 0 : (Tw - G*M*Math.cos(st.th));
+  el('d-sum').innerHTML = FrNet.toFixed(2) + '<small>N</small>';
+
+  /*  松弛徽标：仅轻绳且当前处于松弛/抛体段时亮起                        */
+  slackFlag.classList.toggle('on', MODEL === 'string' && !!st.slack);
+
+  oV0.textContent = S.v0.toFixed(2) + ' m/s';
+  oT.textContent  = S.t.toFixed(2) + ' s';
+  paint(sV0);
+
+  /*  底部周期读数：轻绳松弛时用 stringTrip（右半程+左半程），否则用 Tper。
+      两者差别明显（v₀=4.5 时 1.19 s vs 2.39 s），值得显示出来。              */
+  const perNow = periodOf(S.v0, MODEL);
+  el('p-per').textContent = perNow.toFixed(3) + ' s' +
+    (MODEL === 'string' && tableFor(S.v0).sl ? '（含抛体段）' : '');
+
+  document.querySelectorAll('#v0-scale button').forEach(b => {
+    b.classList.toggle('on', Math.abs(+b.dataset.v - S.v0) < 0.006);
+  });
+
+  bPlay.setAttribute('aria-pressed', String(S.playing));
+  bPlayTxt.textContent = S.playing ? '暂停' : '播放';
+}
+
+function renderAll(){ draw(); drawCurve(); syncAll(); }
+
+/*  切换 v₀ 时保持相对相位，避免小球位置跳变  */
+function setV0(v0, keepPhase){
+  const oldPer = periodOf(S.v0, MODEL);
+  const frac = (keepPhase && oldPer > 0) ? S.t / oldPer : 0;
+  S.v0 = Math.min(9.5, Math.max(0.5, v0));
+  sV0.value = S.v0;
+  S.t = frac * periodOf(S.v0, MODEL);
+  syncTimeSlider();
+  renderAll();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   7 · 交互
+   ═══════════════════════════════════════════════════════════════ */
+sV0.addEventListener('input', e => setV0(+e.target.value, true));
+
+sT.addEventListener('input', e => {
+  S.t = +e.target.value;
+  S.playing = false;
+  renderAll();
+});
+
+bPlay.addEventListener('click', () => {
+  S.playing = !S.playing;
+  S.last = performance.now();
+  renderAll();
+});
+
+bReset.addEventListener('click', () => {
+  S.t = 0; S.playing = true; S.last = performance.now();
+  syncTimeSlider(); renderAll();
+});
+
+document.querySelectorAll('#v0-scale button').forEach(b => {
+  b.addEventListener('click', () => setV0(+b.dataset.v, false));
+});
+
+/* ── 约束模型切换（轻绳 ⇄ 轻杆） ──
+     切换后周期定义随之改变，需重设时间滑块量程并整体重绘。               */
+const NOTE_STRING = '轻绳只能拉、不能推：当 T 降到 0 时绳松弛，小球脱离圆周按抛体运动，直到绳再次绷直。';
+const NOTE_ROD    = '轻杆既能拉也能推：T 取负值时表示杆对球的支持力，小球始终被约束在圆周上。';
+function setModel(m){
+  if(m === MODEL) return;
+  const oldPer = periodOf(S.v0, MODEL);
+  const frac   = oldPer > 0 ? S.t / oldPer : 0;
+  MODEL = m;
+  segBtns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.model === m)));
+  segNote.textContent = (m === 'rod') ? NOTE_ROD : NOTE_STRING;
+  S.t = frac * periodOf(S.v0, MODEL);
+  syncTimeSlider(); renderAll();
+}
+segBtns.forEach(b => b.addEventListener('click', () => setModel(b.dataset.model)));
+
+/* 时间刻度：按周期比例定位 */
+document.querySelectorAll('#t-scale button').forEach(b => {
+  b.addEventListener('click', () => {
+    S.t = (+b.dataset.t) * periodOf(S.v0, MODEL);
+    S.playing = false;
+    syncTimeSlider(); renderAll();
+  });
+});
+
+/* ── 键盘 ── */
+window.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if(e.code === 'Space'){
+    if(tag === 'input' || tag === 'button') return;
+    e.preventDefault(); bPlay.click(); return;
+  }
+  if(tag === 'input') return;      /* 让滑块自己处理方向键 */
+  const per = periodOf(S.v0, MODEL);
+  const step = per * (e.shiftKey ? 0.02 : 0.002);
+  if(e.key === 'ArrowLeft'){  e.preventDefault(); S.t = Math.max(0, S.t - step);    S.playing = false; syncTimeSlider(); renderAll(); }
+  if(e.key === 'ArrowRight'){ e.preventDefault(); S.t = Math.min(per, S.t + step); S.playing = false; syncTimeSlider(); renderAll(); }
+  if(e.key === 'ArrowUp'){    e.preventDefault(); setV0(+(S.v0 + 0.05).toFixed(2), true); }
+  if(e.key === 'ArrowDown'){  e.preventDefault(); setV0(+(S.v0 - 0.05).toFixed(2), true); }
+});
+
+/* ── 拖动小球设定 v₀ ── */
+let dragging = false;
+function localPt(ev){
+  const r = cv.getBoundingClientRect();
+  const p = ev.touches ? ev.touches[0] : ev;
+  return { x: (p.clientX - r.left) * (W / r.width), y: (p.clientY - r.top) * (H / r.height) };
+}
+function ballScreen(){
+  const st = solve(S.v0, S.t, MODEL), pos = ballPos(st.th, st.side);
+  return { x: sx(pos.x), y: sy(pos.y) };
+}
+const HIT = () => Math.max(30, R * 0.13);
+
+cv.addEventListener('pointerdown', e => {
+  const b = ballScreen(), p = localPt(e);
+  if(Math.hypot(p.x - b.x, p.y - b.y) < HIT()){
+    dragging = true;
+    try { cv.setPointerCapture(e.pointerId); } catch(_) {}
+    cv.classList.add('grabbing');
+    S.playing = false;
+    hintEl.classList.add('gone');
+    cv.focus({ preventScroll: true });
+  }
+});
+cv.addEventListener('pointermove', e => {
+  const b = ballScreen(), p = localPt(e);
+  const onBall = Math.hypot(p.x - b.x, p.y - b.y) < HIT();
+  if(!dragging) cv.style.cursor = onBall ? 'grab' : 'crosshair';
+  if(!dragging) return;
+  e.preventDefault();
+  const dx = (p.x - CX) / R, dy = (CY - p.y) / R;          /* 物理坐标（米） */
+  if(Math.hypot(dx, dy) < 0.12) return;
+  /*  拖到某角度 ⇒ 令该角度成为折返点 θmax，反推 v₀：
+        v₀² = 2gL(1 − cos θmax)                                              */
+  const th = Math.atan2(Math.abs(dx), -dy);
+  setV0(Math.sqrt(Math.max(2*G*L*(1 - Math.cos(th)), G*L*0.01)), false);
+});
+function endDrag(){
+  if(dragging){ dragging = false; cv.classList.remove('grabbing'); }
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+
+/* ═══════════════════════════════════════════════════════════════
+   8 · 动画循环
+   ═══════════════════════════════════════════════════════════════ */
+function loop(now){
+  if(S.playing){
+    const dt = Math.min(0.05, (now - (S.last || now)) / 1000);
+    const per = periodOf(S.v0, MODEL);
+    S.t += dt;
+    if(S.t >= per) S.t -= per;
+    sT.value = S.t;
+    paint(sT);
+    renderAll();
+  }
+  S.last = now;
+  requestAnimationFrame(loop);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   9 · 启动
+   ═══════════════════════════════════════════════════════════════ */
+function boot(){
+  fitCanvas(); fitCurve();
+  syncTimeSlider();
+  renderAll();
+  S.last = performance.now();
+  requestAnimationFrame(loop);
+  setTimeout(() => hintEl.classList.add('gone'), 9000);
+}
+
+let rt = null;
+window.addEventListener('resize', () => {
+  clearTimeout(rt);
+  rt = setTimeout(() => { fitCanvas(); fitCurve(); renderAll(); }, 90);
+});
+
+if(document.readyState === 'complete') boot();
+else window.addEventListener('load', boot);
+</script>
+</body>
+</html>
